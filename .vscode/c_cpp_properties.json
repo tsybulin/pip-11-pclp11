@@ -1,0 +1,18 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "/Volumes/picodev/pico-sdk/**"
+      ],
+      "defines": [],
+      "compilerPath": "/Volumes/picodev/arm-gnu-toolchain-13.3.rel1-darwin-arm64-arm-none-eabi/bin/arm-none-eabi-gcc",
+      "cStandard": "gnu17",
+      "cppStandard": "gnu++14",
+      "intelliSenseMode": "linux-gcc-arm",
+      "configurationProvider" : "ms-vscode.cmake-tools"
+    }
+  ],
+  "version": 4
+}
