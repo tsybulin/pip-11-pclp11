@@ -3,6 +3,7 @@
 #include <hardware/i2c.h>
 #include <pico/i2c_slave.h>
 #include "pico/time.h"
+#include <pico/multicore.h>
 #include <string.h>
 #include "ff.h"
 #include "lcd.h"
@@ -36,6 +37,7 @@ static uint16_t prs, prb, pps, ppb, lps, lpb ;
 static FSIZE_t ptr_size = 0 ;
 static FSIZE_t ptr_pos = 0 ;
 volatile bool progress_update = false ;
+volatile bool sdcard_busy = false ;
 
 typedef struct _Tapes {
     uint8_t PAGESIZE ;
@@ -265,9 +267,6 @@ static void lp11_reset() {
     }
 }
 
-
-int prg_cnt = 0 ;
-
 static void pclp11_step() {
     if (rst) {
         pc11_reset() ;
@@ -275,18 +274,9 @@ static void pclp11_step() {
         return ;
     }
 
-    if (((prs & 01) == 0) && ((pps & 0200) != 0) && ((lps & 0200) != 0)) {
-        if (progress_update) {
-            if (++prg_cnt > 10000000) {
-                prg_cnt = 0 ;
-                show_ptr_progress() ;
-                progress_update = false ;
-            }
-        }
-    }
-
     // ptr
     if (prs & 01) {
+        sdcard_busy = true ;
         uint16_t r = (prs & ~04001) | 0200 ; // clear enable, busy. set done
         UINT br = 0 ;
         FRESULT fr = f_read(&ptrfile, &prb, 1, &br) ;
@@ -298,10 +288,12 @@ static void pclp11_step() {
         }
         
         prs = r ;
+        sdcard_busy = false ;
     }
 
     // ptp
     if ((pps & 0200) == 0) {
+        sdcard_busy = true ;
         UINT bw = 0 ;
         FRESULT fr = f_write(&ptpfile, &ppb, 1, &bw) ;
         if (fr != FR_OK || bw != 1) {
@@ -311,10 +303,12 @@ static void pclp11_step() {
         }
 
         pps |= 0200 ; // set ready
+        sdcard_busy = false ;
     }
 
     //lp
     if ((lps & 0200) == 0) {
+        sdcard_busy = true ;
         UINT bw = 0 ;
         FRESULT fr = f_write(&lpfile, &lpb, 1, &bw) ;
         if (fr != FR_OK || bw != 1) {
@@ -324,6 +318,7 @@ static void pclp11_step() {
         }
 
         lps |= 0200 ; // set ready
+        sdcard_busy = false ;
     }    
 }
 
@@ -397,6 +392,22 @@ static void i2c_slave_handler(i2c_inst_t *i2c, i2c_slave_event_t event) {
     }
 }
 
+void second_core() {
+    while (true) {
+        if (sdcard_busy) {
+            tight_loop_contents() ;
+            continue ;
+        }
+
+        if (progress_update) {
+            show_ptr_progress() ;
+            progress_update = false ;
+        }
+
+        tight_loop_contents() ;
+    }
+}
+
 int main() {
     stdio_init_all() ;
 
@@ -442,6 +453,8 @@ int main() {
     }
 
     pc11_reset() ;
+
+    multicore_launch_core1(second_core) ;
 
     while (true) {
         if (gpio_get(LCD_KEY_LEFT) == 0) {

@@ -21,5 +21,5 @@ add_subdirectory(lib/fatfs)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 
-target_link_libraries(${PROJECT_NAME} sdcard fatfs pico_stdlib hardware_i2c hardware_spi hardware_pwm pico_i2c_slave)
+target_link_libraries(${PROJECT_NAME} sdcard fatfs pico_stdlib hardware_i2c hardware_spi hardware_pwm pico_i2c_slave pico_multicore)
 pico_add_extra_outputs(${PROJECT_NAME})
